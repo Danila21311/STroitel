@@ -8,9 +8,13 @@ export default function AdminOrdersPage() {
   useEffect(() => { load(); }, []);
 
   const updateStatus = async (id, status) => {
-    await http.patch(`/admin/orders/${id}/status`, { status });
-    toast.success("Статус обновлен");
-    load();
+    try {
+      await http.patch(`/admin/orders/${id}/status`, { status });
+      toast.success("Статус обновлен");
+      load();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Не удалось обновить статус");
+    }
   };
 
   return (

@@ -1,13 +1,9 @@
 require("dotenv").config();
 const { sequelize, User, Category, Product } = require("../models");
+const { Op } = require("sequelize");
 const { slugify } = require("../utils/helpers");
 
-async function seed(options = {}) {
-  await sequelize.authenticate();
-  if (options.sync !== false) {
-    await sequelize.sync(options.alter ? { alter: true } : {});
-  }
-
+async function upsertCatalog() {
   const categories = [
     { name: "Сухие смеси" },
     { name: "Кирпич и блоки" },
@@ -20,10 +16,12 @@ async function seed(options = {}) {
   ];
 
   for (const c of categories) {
-    await Category.findOrCreate({
-      where: { slug: slugify(c.name) },
-      defaults: { name: c.name, slug: slugify(c.name) },
+    const slug = slugify(c.name);
+    const [category] = await Category.findOrCreate({
+      where: { name: c.name },
+      defaults: { name: c.name, slug },
     });
+    if (category.slug !== slug) await category.update({ slug });
   }
 
   const all = await Category.findAll();
@@ -228,7 +226,7 @@ async function seed(options = {}) {
 
   for (const p of products) {
     const slug = slugify(p.title);
-    const existing = await Product.findOne({ where: { slug } });
+    const existing = await Product.findOne({ where: { title: p.title } });
     const payload = { ...p, slug, isPublished: true, gallery: [p.image] };
     if (!existing) {
       await Product.create(payload);
@@ -236,6 +234,15 @@ async function seed(options = {}) {
       await existing.update(payload);
     }
   }
+}
+
+async function seed(options = {}) {
+  await sequelize.authenticate();
+  if (options.sync !== false) {
+    await sequelize.sync(options.alter ? { alter: true } : {});
+  }
+
+  await upsertCatalog();
 
   await User.findOrCreate({
     where: { email: "admin@hozyan.ru" },
@@ -250,7 +257,22 @@ async function seed(options = {}) {
   console.log("Seed complete");
 }
 
-module.exports = { seed };
+async function repairCatalog() {
+  await sequelize.authenticate();
+  await upsertCatalog();
+
+  const stale = await Category.findAll({
+    where: { slug: { [Op.in]: ["", "-", "item"] } },
+  });
+  for (const c of stale) {
+    const linked = await Product.count({ where: { categoryId: c.id } });
+    if (!linked) await c.destroy();
+  }
+
+  console.log("Catalog repair complete");
+}
+
+module.exports = { seed, repairCatalog };
 
 if (require.main === module) {
   seed({ alter: true })

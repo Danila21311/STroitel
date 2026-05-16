@@ -148,10 +148,13 @@ export default function AdminProductsPage() {
           value={form.image}
           onChange={(e) => setForm((p) => ({ ...p, image: e.target.value }))}
         />
-        <label className="btn">
+        <label className="btn" title="На Render используйте URL изображения">
           Загрузить фото
           <input type="file" accept="image/*" onChange={uploadImage} style={{ display: "none" }} />
         </label>
+        <p className="muted cols-2" style={{ margin: 0, fontSize: "0.85rem" }}>
+          На бесплатном хостинге загрузка файлов отключена — вставьте ссылку на картинку (Unsplash и т.п.).
+        </p>
         <input
           type="number"
           required

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import { http } from "../../api/http";
 
 export default function AdminReviewsPage() {
@@ -7,8 +8,12 @@ export default function AdminReviewsPage() {
   useEffect(() => { load(); }, []);
 
   const toggle = async (id, isPublished) => {
-    await http.patch(`/admin/reviews/${id}`, { isPublished });
-    load();
+    try {
+      await http.patch(`/admin/reviews/${id}`, { isPublished });
+      load();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Не удалось обновить отзыв");
+    }
   };
 
   return (

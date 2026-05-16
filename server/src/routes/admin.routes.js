@@ -6,6 +6,7 @@ const { auth, allowRoles } = require("../middleware/auth");
 const { sequelize, User, Product, Order, Category, Review, OrderItem, ContactMessage } = require("../models");
 const { restoreOrderStock } = require("../services/orderService");
 const { slugify } = require("../utils/helpers");
+const { uniqueSlug } = require("../utils/uniqueSlug");
 
 const router = express.Router();
 
@@ -87,7 +88,7 @@ router.post("/products", allowRoles("ADMIN", "MANAGER"), async (req, res) => {
     oldPrice: z.number().positive().optional(),
     categoryId: z.number(),
     stock: z.number().int().nonnegative(),
-    image: z.string().url().optional(),
+    image: z.union([z.string().url(), z.literal("")]).optional(),
     gallery: z.array(z.string().url()).optional(),
     brand: z.string().optional(),
     isPublished: z.boolean().optional(),
@@ -96,7 +97,10 @@ router.post("/products", allowRoles("ADMIN", "MANAGER"), async (req, res) => {
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: "Ошибка валидации" });
-  const product = await Product.create({ ...parsed.data, slug: slugify(parsed.data.title) });
+  const data = { ...parsed.data };
+  if (data.image === "") delete data.image;
+  const slug = await uniqueSlug(Product, parsed.data.title);
+  const product = await Product.create({ ...data, slug });
   res.status(201).json(product);
 });
 
@@ -118,7 +122,7 @@ router.put("/products/:id", allowRoles("ADMIN", "MANAGER"), async (req, res) => 
   const product = await Product.findByPk(req.params.id);
   if (!product) return res.status(404).json({ message: "Товар не найден" });
   const data = { ...parsed.data };
-  if (data.title) data.slug = slugify(data.title);
+  if (data.title) data.slug = await uniqueSlug(Product, data.title, product.id);
   if (data.image === "") data.image = null;
   await product.update(data);
   res.json(product);
@@ -210,9 +214,10 @@ router.post("/categories", allowRoles("ADMIN", "CONTENT_MANAGER"), async (req, r
   const schema = z.object({ name: z.string().min(2), parentId: z.number().nullable().optional() });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: "Ошибка валидации" });
+  const slug = await uniqueSlug(Category, parsed.data.name);
   const category = await Category.create({
     name: parsed.data.name,
-    slug: slugify(parsed.data.name),
+    slug,
     parentId: parsed.data.parentId || null,
   });
   res.status(201).json(category);
@@ -224,9 +229,10 @@ router.put("/categories/:id", allowRoles("ADMIN", "CONTENT_MANAGER"), async (req
   if (!parsed.success) return res.status(400).json({ message: "Ошибка валидации" });
   const category = await Category.findByPk(req.params.id);
   if (!category) return res.status(404).json({ message: "Категория не найдена" });
+  const slug = await uniqueSlug(Category, parsed.data.name, category.id);
   await category.update({
     name: parsed.data.name,
-    slug: slugify(parsed.data.name),
+    slug,
     parentId: parsed.data.parentId ?? category.parentId,
   });
   res.json(category);
