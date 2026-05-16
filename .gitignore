@@ -1,0 +1,15 @@
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.env
+**/.env
+.DS_Store
+Thumbs.db
+*.log
+.vscode/*
+!.vscode/extensions.json
+*.sqlite
+server/data/*.sqlite
+server/uploads/*
+!server/uploads/.gitkeep
