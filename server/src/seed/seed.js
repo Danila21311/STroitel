@@ -2,9 +2,11 @@ require("dotenv").config();
 const { sequelize, User, Category, Product } = require("../models");
 const { slugify } = require("../utils/helpers");
 
-async function seed() {
+async function seed(options = {}) {
   await sequelize.authenticate();
-  await sequelize.sync({ alter: true });
+  if (options.sync !== false) {
+    await sequelize.sync(options.alter ? { alter: true } : {});
+  }
 
   const categories = [
     { name: "Сухие смеси" },
@@ -246,10 +248,15 @@ async function seed() {
   });
 
   console.log("Seed complete");
-  process.exit(0);
 }
 
-seed().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+module.exports = { seed };
+
+if (require.main === module) {
+  seed({ alter: true })
+    .then(() => process.exit(0))
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    });
+}

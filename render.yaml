@@ -31,6 +31,8 @@ services:
         generateValue: true
       - key: DISABLE_FILE_UPLOAD
         value: "true"
+      - key: SEED_IF_EMPTY
+        value: "true"
       - key: SITE_PHONE
         value: "+7 (495) 123-45-67"
       - key: SITE_PHONE_TEL
