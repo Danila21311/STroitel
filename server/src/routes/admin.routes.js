@@ -80,15 +80,31 @@ router.post("/products/import/csv", allowRoles("ADMIN", "MANAGER"), async (req, 
   res.json({ imported });
 });
 
-router.post("/products", allowRoles("ADMIN", "MANAGER"), async (req, res) => {
+const validationMessage = (parsed) => {
+  const issue = parsed.error.issues[0];
+  if (!issue) return "Ошибка валидации";
+  const field = issue.path?.[0];
+  if (field === "price") return "Цена должна быть больше 0";
+  if (field === "categoryId") return "Выберите категорию";
+  if (field === "description") return "Описание: минимум 10 символов";
+  if (field === "title") return "Название: минимум 3 символа";
+  if (field === "image") return "Ссылка на фото должна начинаться с http:// или https://";
+  return issue.message || "Ошибка валидации";
+};
+
+router.post("/products", allowRoles("ADMIN", "MANAGER", "CONTENT_MANAGER"), async (req, res) => {
   const schema = z.object({
     title: z.string().min(3),
     description: z.string().min(10),
     price: z.number().positive(),
     oldPrice: z.number().positive().optional(),
-    categoryId: z.number(),
+    categoryId: z.number().int().positive(),
     stock: z.number().int().nonnegative(),
-    image: z.union([z.string().url(), z.literal("")]).optional(),
+    image: z
+      .string()
+      .optional()
+      .transform((v) => (v && v.trim() ? v.trim() : undefined))
+      .pipe(z.union([z.string().url(), z.undefined()])),
     gallery: z.array(z.string().url()).optional(),
     brand: z.string().optional(),
     isPublished: z.boolean().optional(),
@@ -96,7 +112,7 @@ router.post("/products", allowRoles("ADMIN", "MANAGER"), async (req, res) => {
     seoDescription: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ message: "Ошибка валидации" });
+  if (!parsed.success) return res.status(400).json({ message: validationMessage(parsed) });
   const data = { ...parsed.data };
   if (data.image === "") delete data.image;
   const slug = await uniqueSlug(Product, parsed.data.title);
@@ -116,7 +132,7 @@ const productSchema = z.object({
   isPublished: z.boolean().optional(),
 });
 
-router.put("/products/:id", allowRoles("ADMIN", "MANAGER"), async (req, res) => {
+router.put("/products/:id", allowRoles("ADMIN", "MANAGER", "CONTENT_MANAGER"), async (req, res) => {
   const parsed = productSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ message: "Ошибка валидации" });
   const product = await Product.findByPk(req.params.id);

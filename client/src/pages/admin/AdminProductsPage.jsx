@@ -3,7 +3,7 @@ import toast from "react-hot-toast";
 import { http } from "../../api/http";
 import { useAuth } from "../../context/AuthContext";
 
-const empty = { title: "", description: "", price: 0, stock: 0, categoryId: "", image: "", brand: "" };
+const empty = { title: "", description: "", price: "", stock: "", categoryId: "", image: "", brand: "" };
 
 export default function AdminProductsPage() {
   const { user } = useAuth();
@@ -28,12 +28,41 @@ export default function AdminProductsPage() {
 
   const save = async (e) => {
     e.preventDefault();
-    const body = {
-      ...form,
-      price: Number(form.price),
-      stock: Number(form.stock),
-      categoryId: Number(form.categoryId),
-    };
+    const title = form.title.trim();
+    const description = form.description.trim();
+    const price = Number(form.price);
+    const stock = Number(form.stock) || 0;
+    const categoryId = Number(form.categoryId);
+
+    if (title.length < 3) {
+      toast.error("Название: минимум 3 символа");
+      return;
+    }
+    if (description.length < 10) {
+      toast.error("Описание: минимум 10 символов");
+      return;
+    }
+    if (!Number.isFinite(price) || price <= 0) {
+      toast.error("Укажите цену больше 0");
+      return;
+    }
+    if (!categoryId) {
+      toast.error("Выберите категорию");
+      return;
+    }
+
+    const body = { title, description, price, stock, categoryId, brand: form.brand.trim() || undefined };
+    const image = form.image.trim();
+    if (image) {
+      try {
+        new URL(image);
+        body.image = image;
+      } catch {
+        toast.error("Ссылка на фото: http:// или https:// (или оставьте поле пустым)");
+        return;
+      }
+    }
+
     try {
       if (editId) {
         await http.put(`/admin/products/${editId}`, body);
@@ -138,13 +167,15 @@ export default function AdminProductsPage() {
         <input placeholder="Бренд" value={form.brand} onChange={(e) => setForm((p) => ({ ...p, brand: e.target.value }))} />
         <textarea
           required
+          minLength={10}
           className="cols-2"
-          placeholder="Описание"
+          placeholder="Описание (не менее 10 символов)"
           value={form.description}
           onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
         />
         <input
-          placeholder="URL изображения"
+          type="url"
+          placeholder="https://... (необязательно)"
           value={form.image}
           onChange={(e) => setForm((p) => ({ ...p, image: e.target.value }))}
         />
@@ -158,14 +189,17 @@ export default function AdminProductsPage() {
         <input
           type="number"
           required
-          placeholder="Цена"
+          min="1"
+          step="0.01"
+          placeholder="Цена, ₽"
           value={form.price}
           onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))}
         />
         <input
           type="number"
           required
-          placeholder="Остаток"
+          min="0"
+          placeholder="Остаток на складе"
           value={form.stock}
           onChange={(e) => setForm((p) => ({ ...p, stock: e.target.value }))}
         />
